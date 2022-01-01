@@ -13,9 +13,16 @@ class WindowButton {
 
 class Region {
 	public Rectangle Rectangle;
+	public Window LastActiveWindow;
 }
 
 public class Game1 : Game {
+	public static string[] Blacklist = new string[] {
+		"Microsoft Text Input Application",
+		"Program Manager",
+		"",
+	};
+
 	GraphicsDeviceManager graphics;
 	SpriteBatch spriteBatch;
 	SpriteFont font;
@@ -38,6 +45,7 @@ public class Game1 : Game {
 	int barOffset = 64;
 
 	Queue<Window> getIconQueue = new Queue<Window>();
+	Dictionary<string, Texture2D> replacementIcons = new Dictionary<string, Texture2D>();
 
 	public void UpdateWindowManager() {
 		while (true) {
@@ -61,16 +69,21 @@ public class Game1 : Game {
 		graphics = new GraphicsDeviceManager(this);
 		Content.RootDirectory = "Content";
 		IsMouseVisible = true;
-		// Window.IsBorderless = true;
 	}
 
 	void OnWindowCreated(Window window) {
+		if (Blacklist.Contains(window.Title))
+			return;
+
 		var button = new WindowButton() {
 			Window = window,
 			Rectangle = new Rectangle((windowButtons.Count * buttonWidth) + 5, 0, buttonWidth, barHeight)
 		};
 
-		if (window.IsVisible) {
+		var moduleName = window.Process.MainModule.ModuleName.ToLower().Split('.')[0];
+		if (replacementIcons.ContainsKey(moduleName)) {
+			button.Window.Icon = replacementIcons[moduleName];
+		} else if (window.IsVisible) {
 			window.GetIcon();
 			// getIconQueue.Append(window);
 		}
@@ -94,6 +107,7 @@ public class Game1 : Game {
 		windowManager = new WindowManager(graphics);
 		windowManager.WindowCreated += OnWindowCreated;
 		windowManager.WindowDestroyed += OnWindowDestroyed;
+		windowManager.ForegroundWindowChanged += OnForegroundWindowChanged;
 
 		var w = 5120;
 		var p = w / 4;
@@ -120,23 +134,52 @@ public class Game1 : Game {
 		});
 	}
 
+	private void OnForegroundWindowChanged(Window window) {
+		if (window == null)
+			return;
+
+		foreach (var region in regions.ToArray())
+			if (region.Rectangle.Contains(window.Rectangle.Center))
+				region.LastActiveWindow = window;
+	}
+
 	protected override void LoadContent() {
 		spriteBatch = new SpriteBatch(GraphicsDevice);
 		font = Content.Load<SpriteFont>("Font");
 		FileStream fileStream = new FileStream("Content/square.png", FileMode.Open);
 		square = Texture2D.FromStream(graphics.GraphicsDevice, fileStream);
 		fileStream.Dispose();
+
+		// Load replacement icons
+		var dirInfo = new System.IO.DirectoryInfo("Content/icons");
+		foreach (var fileInfo in dirInfo.GetFiles("*.png")) {
+			fileStream = fileInfo.OpenRead();
+			var icon = Texture2D.FromStream(graphics.GraphicsDevice, fileStream);
+			var name = fileInfo.Name.Split('.')[0];
+			replacementIcons.Add(name, icon);
+			fileStream.Dispose();
+
+			System.Console.WriteLine($"Loading Replacement Icon: {name}");
+		}
 	}
 
 	protected override void Update(GameTime gameTime) {
 		if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
 			Exit();
 
+		foreach (var button in windowButtons.ToArray()) {
+			button.Rectangle.Width = (int)MathHelper.Lerp(
+				button.Rectangle.Width,
+				regions.Any(r => r.LastActiveWindow == button.Window) ? 48 : 32,
+				(float)gameTime.ElapsedGameTime.TotalSeconds * 15f
+			);
+		}
+
 		base.Update(gameTime);
 	}
 
 	Color bgColor = new Color(0.025f, 0.025f, 0.025f);
-	Color bgColorHover = new Color(0.2f, 0.2f, 0.2f);
+	Color bgColorHover = new Color(0.0f, 0.0f, 0.0f);
 
 	bool Button(string text, Rectangle rect, Texture2D icon, bool hilight) {
 		var hovered = rect.Contains(mouseState.Position);
@@ -144,10 +187,8 @@ public class Game1 : Game {
 		spriteBatch.Draw(square, rect, (hovered && draggedButton == null) || hilight ? bgColorHover : bgColor);
 
 		if (icon != null) {
-
-			spriteBatch.Draw(icon, new Rectangle(rect.Center.X - 8, rect.Y + 4, 16, 16), Color.White);
+			spriteBatch.Draw(icon, new Rectangle(rect.Center.X - 8, rect.Y + 4, 16, 16), hilight || hovered ? Color.White : Color.Gray);
 		} else if (text.Length > 0) {
-			// spriteBatch.DrawString(font, "???", new Vector2(rect.X + 10, 4), Color.White, 0, Vector2.Zero, 0.5f, SpriteEffects.None, 1);
 			try {
 				Vector2 size = font.MeasureString(text);
 				if (size.X > rect.Width - 10) {
@@ -183,15 +224,25 @@ public class Game1 : Game {
 			).ToArray();
 			foreach (var button in buttons) {
 				button.Rectangle.X = x;
-				if (Button(button.Window.Title, button.Rectangle, button.Window.Icon, false)) {
+				var hilight = button.Window == region.LastActiveWindow;
+				var rect = button.Rectangle;
+				if (
+					Button(
+						button.Window.Title,
+						rect,
+						button.Window.Icon,
+						hilight
+					)
+				) {
 					button.Window.SetActive();
+					region.LastActiveWindow = button.Window;
 				}
 
-				x += button.Rectangle.Width + 3;
+				x += rect.Width;
 			}
 
 			// Draw date
-			var dateString = System.DateTime.Now.ToString("ddd - yyyy-MM-dd - hh:mm:ss");
+			var dateString = System.DateTime.Now.ToString("ddd - yyyy-MM-dd - HH:mm:ss").ToUpper();
 			var week = System.Globalization.CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(System.DateTime.Now, System.Globalization.CalendarWeekRule.FirstFourDayWeek, System.DayOfWeek.Monday);
 			dateString = $"W{week} " + dateString;
 
@@ -199,12 +250,12 @@ public class Game1 : Game {
 			spriteBatch.DrawString(
 				font,
 				dateString,
-				new Vector2(region.Rectangle.Right - 48 - barOffset - dateWidth, 6),
-				Color.White,
+				new Vector2(region.Rectangle.Right - 48 - barOffset - dateWidth, 4),
+				Color.Gray,
 				0, Vector2.Zero, 0.5f, SpriteEffects.None, 1
 			);
 
-			if (Button("G", new Rectangle(region.Rectangle.Right - 48 - barOffset, 0, 48, barHeight), null, false)) {
+			if (Button("G", new Rectangle(region.Rectangle.Right - 48 - barOffset, -2, 48, barHeight), null, false)) {
 				foreach (var button in buttons) {
 					button.Window.SetSize(region.Rectangle);
 				}
