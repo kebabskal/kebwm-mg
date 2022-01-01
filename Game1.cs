@@ -108,6 +108,16 @@ public class Game1 : Game {
 
 		var thread2 = new Thread(GetIconThread);
 		thread2.Start();
+
+		GlobalHotKey.RegisterHotKey("Control + Shift + G", () => {
+			System.Console.WriteLine("Group!");
+
+			foreach (var region in regions.ToArray())
+				foreach (var windowButton in windowButtons.ToArray())
+					if (region.Rectangle.Contains(windowButton.Window.Rectangle.Center))
+						windowButton.Window.SetSize(region.Rectangle);
+
+		});
 	}
 
 	protected override void LoadContent() {
