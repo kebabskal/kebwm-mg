@@ -1,9 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using Microsoft.Xna.Framework.Graphics;
 using Vanara.PInvoke;
@@ -13,7 +9,6 @@ class Window {
 	public WindowManager WindowManager;
 	public HWND Hwnd;
 	public string Title = "";
-	public string Executable = "";
 	public Process Process;
 	public Rectangle Rectangle;
 	public bool BorderHack = false;
@@ -57,7 +52,7 @@ class Window {
 	}
 
 	public override string ToString() {
-		return $"{Title} ({Hwnd}) ({Rectangle}) ({Executable})";
+		return $"{Title} ({((IntPtr)Hwnd).ToString()}) ({Rectangle})";
 	}
 
 	void SetActiveThread() {
@@ -71,12 +66,13 @@ class Window {
 		thread.Start();
 	}
 
+	// FROM: https://stackoverflow.com/questions/2869801/is-there-a-fast-alternative-to-creating-a-texture2d-from-a-bitmap-object-in-xna
 	Texture2D GetTexture(GraphicsDevice dev, System.Drawing.Bitmap bmp) {
 		int[] imgData = new int[bmp.Width * bmp.Height];
 		Texture2D texture = new Texture2D(dev, bmp.Width, bmp.Height);
 
 		unsafe {
-			// lock bitmap
+			// Lock bitmap
 			System.Drawing.Imaging.BitmapData origdata =
 					bmp.LockBits(new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, bmp.PixelFormat);
 
@@ -87,12 +83,12 @@ class Window {
 				byteData[i] = (byteData[i] & 0x000000ff) << 16 | (byteData[i] & 0x0000FF00) | (byteData[i] & 0x00FF0000) >> 16 | (byteData[i] & 0xFF000000);
 			}
 
-			// copy data
+			// Copy data
 			System.Runtime.InteropServices.Marshal.Copy(origdata.Scan0, imgData, 0, bmp.Width * bmp.Height);
 
 			byteData = null;
 
-			// unlock bitmap
+			// Unlock bitmap
 			bmp.UnlockBits(origdata);
 		}
 
