@@ -11,7 +11,6 @@ using System.Diagnostics;
 using System.Text;
 
 class WindowManager {
-
 	// Interface
 	public Dictionary<HWND, Window> Windows => windows;
 	public Window ForegroundWindow { get; private set; }
@@ -48,9 +47,9 @@ class WindowManager {
 		return sb.ToString();
 	}
 
-
 	public void Update() {
 		var hwnds = new List<HWND>();
+		var currentProcess = Process.GetCurrentProcess();
 		User32.EnumWindows((hwnd, b) => {
 			hwnds.Add(hwnd);
 			var rect = new RECT();
@@ -62,6 +61,10 @@ class WindowManager {
 				uint processId = 0;
 				User32.GetWindowThreadProcessId(hwnd, out processId);
 				var process = Process.GetProcessById((int)processId);
+
+				// Do not handle own process
+				if (currentProcess.Id == process.Id)
+					return true;
 
 				window = new Window(this, hwnd, process) {
 					Title = title.ToString(),
