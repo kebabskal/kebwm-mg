@@ -16,6 +16,7 @@ class Window {
 	public string Executable = "";
 	public Process Process;
 	public Rectangle Rectangle;
+	public bool BorderHack = false;
 
 	public Texture2D Icon;
 
@@ -35,6 +36,12 @@ class Window {
 		WindowManager = windowManager;
 		Hwnd = hwnd;
 		Process = process;
+		try {
+			BorderHack = Process.MainModule.FileName.ToLower().Contains("chrome");
+		} catch {
+
+		}
+
 	}
 
 	public void GetIcon() {
@@ -95,7 +102,11 @@ class Window {
 	}
 
 	public void SetSize(Rectangle rectangle) {
-		User32.MoveWindow(Hwnd, rectangle.Left, rectangle.Top, rectangle.Width, rectangle.Height, true);
+		var b = 8;
+		if (BorderHack)
+			User32.MoveWindow(Hwnd, rectangle.Left - b, rectangle.Top, rectangle.Width + b * 2, rectangle.Height + b, true);
+		else
+			User32.MoveWindow(Hwnd, rectangle.Left, rectangle.Top, rectangle.Width, rectangle.Height, true);
 	}
 }
 
