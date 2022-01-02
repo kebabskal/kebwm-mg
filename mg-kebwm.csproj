@@ -31,5 +31,6 @@
     <PackageReference Include="Vanara.PInvoke.User32" Version="3.3.14" />
     <PackageReference Include="Vanara.PInvoke.Kernel32" Version="3.3.14" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.22000.196" />
   </ItemGroup>
 </Project>

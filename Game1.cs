@@ -5,6 +5,7 @@ using System.Threading;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Windows.UI.ViewManagement;
 
 class WindowButton {
 	public Rectangle Rectangle;
@@ -164,6 +165,11 @@ public class Game1 : Game {
 
 			System.Console.WriteLine($"Loading Replacement Icon: {name}");
 		}
+
+		// Get windows accent color
+		var uiSettings = new UISettings();
+		var ac = uiSettings.GetColorValue(UIColorType.Accent);
+		accentColor = new Color(ac.R, ac.G, ac.B, ac.A);
 	}
 
 	protected override void Update(GameTime gameTime) {
@@ -183,11 +189,14 @@ public class Game1 : Game {
 
 	Color bgColor = new Color(0.025f, 0.025f, 0.025f);
 	Color bgColorHover = new Color(0.0f, 0.0f, 0.0f);
+	Color accentColor = new Color(0.0f, 0.6f, 0.7f);
 
-	bool Button(string text, Rectangle rect, Texture2D icon, bool hilight) {
+	bool Button(string text, Rectangle rect, Texture2D icon, bool hilight, bool underline) {
 		var hovered = rect.Contains(mouseState.Position);
 		// Draw background
 		spriteBatch.Draw(square, rect, (hovered && draggedButton == null) || hilight ? bgColorHover : bgColor);
+		if (underline)
+			spriteBatch.Draw(square, new Rectangle(rect.X, rect.Y + rect.Height - 3, rect.Width, 3), accentColor);
 
 		if (icon != null) {
 			spriteBatch.Draw(icon, new Rectangle(rect.Center.X - 8, rect.Y + 4, 16, 16), hilight || hovered ? Color.White : Color.Gray);
@@ -234,6 +243,7 @@ public class Game1 : Game {
 						button.Window.Title,
 						rect,
 						button.Window.Icon,
+						hilight,
 						hilight
 					)
 				) {
@@ -258,7 +268,6 @@ public class Game1 : Game {
 				0, Vector2.Zero, 0.5f, SpriteEffects.None, 1
 			);
 
-			if (Button("G", new Rectangle(region.Rectangle.Right - 48 - barOffset, -2, 48, barHeight), null, false)) {
 			// Draw temperature
 			var tempWidth = font.MeasureString(weatherManager.CurrentTemperature).X / 2 + 10;
 			spriteBatch.DrawString(
@@ -268,6 +277,8 @@ public class Game1 : Game {
 				Color.Gray,
 				0, Vector2.Zero, 0.5f, SpriteEffects.None, 1
 			);
+
+			if (Button("G", new Rectangle(region.Rectangle.Right - 48 - barOffset, -2, 48, barHeight), null, false, false)) {
 				foreach (var button in buttons) {
 					button.Window.SetSize(region.Rectangle);
 				}
