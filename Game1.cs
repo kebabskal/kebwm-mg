@@ -27,6 +27,7 @@ public class Game1 : Game {
 	GraphicsDeviceManager graphics;
 	SpriteBatch spriteBatch;
 	SpriteFont font;
+	SpriteFont fontBold;
 	Texture2D square;
 
 	WindowManager windowManager;
@@ -152,6 +153,7 @@ public class Game1 : Game {
 	protected override void LoadContent() {
 		spriteBatch = new SpriteBatch(GraphicsDevice);
 		font = Content.Load<SpriteFont>("Font");
+		fontBold = Content.Load<SpriteFont>("FontBold");
 		FileStream fileStream = new FileStream("Content/square.png", FileMode.Open);
 		square = Texture2D.FromStream(graphics.GraphicsDevice, fileStream);
 		fileStream.Dispose();
@@ -277,7 +279,7 @@ public class Game1 : Game {
 
 			var dateWidth = font.MeasureString(dateString).X / 2 + 10;
 			spriteBatch.DrawString(
-				font,
+				fontBold,
 				dateString,
 				new Vector2(region.Rectangle.Right - 48 - barOffset - dateWidth, 4),
 				Color.Gray,
@@ -287,7 +289,7 @@ public class Game1 : Game {
 			// Draw temperature
 			var tempWidth = font.MeasureString(weatherManager.CurrentTemperature).X / 2 + 10;
 			spriteBatch.DrawString(
-				font,
+				fontBold,
 				weatherManager.CurrentTemperature,
 				new Vector2(region.Rectangle.Right - 48 - barOffset - dateWidth - tempWidth - 20, 4),
 				Color.Gray,
