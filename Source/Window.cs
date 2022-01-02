@@ -9,6 +9,7 @@ using Rectangle = Microsoft.Xna.Framework.Rectangle;
 class Window {
 	public static string[] BorderList = new String[] {
 		"chrome",
+		"unity",
 	};
 
 	public WindowManager WindowManager;
@@ -17,6 +18,7 @@ class Window {
 	public Process Process;
 	public Rectangle Rectangle;
 	public bool BorderHack = false;
+	public bool CompactHack = false;
 
 	public Texture2D Icon;
 
@@ -104,10 +106,27 @@ class Window {
 
 	public void SetSize(Rectangle rectangle) {
 		var b = 8;
-		if (BorderHack)
-			User32.MoveWindow(Hwnd, rectangle.Left - b, rectangle.Top, rectangle.Width + b * 2, rectangle.Height + b, true);
-		else
-			User32.MoveWindow(Hwnd, rectangle.Left, rectangle.Top, rectangle.Width, rectangle.Height, true);
+		var left = rectangle.Left;
+		var top = rectangle.Top;
+		var width = rectangle.Width;
+		var height = rectangle.Height;
+
+		if (BorderHack) {
+			left -= b;
+			width += b * 2;
+			height += b;
+		}
+
+		if (CompactHack) {
+			top -= 53;
+			height += 53;
+		}
+
+		User32.MoveWindow(Hwnd, left, top, width, height, true);
+	}
+
+	internal void ToggleCompact() {
+		CompactHack = !CompactHack;
 	}
 }
 
