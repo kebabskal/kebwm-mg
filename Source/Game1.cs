@@ -5,7 +5,7 @@ using System.Threading;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Windows.UI.ViewManagement;
+using Vanara.PInvoke;
 
 class WindowButton {
 	public Rectangle Rectangle;
@@ -33,16 +33,17 @@ public class Game1 : Game {
 	WindowManager windowManager;
 	WeatherManager weatherManager;
 	AudioManager audioManager;
+	UI ui;
+
 	List<WindowButton> windowButtons;
 	List<Region> regions;
 
 	MouseState mouseState;
 	MouseState lastMouseState;
-
-	// Reordering
-	WindowButton draggedButton = null;
-	Point dragOffset = new Point(0, 0);
-	Point dragStart = new Point(0, 0);
+	KeyboardState keyboardState;
+	KeyboardState lastKeyboardState;
+	bool altPressed = false;
+	bool ctrlPressed = false;
 
 	int buttonWidth = 32;
 	int barHeight = 28;
@@ -81,7 +82,7 @@ public class Game1 : Game {
 
 		var button = new WindowButton() {
 			Window = window,
-			Rectangle = new Rectangle((windowButtons.Count * buttonWidth) + 5, 0, buttonWidth, barHeight)
+			Rectangle = new Rectangle(0, 0, buttonWidth, barHeight)
 		};
 
 		var moduleName = window.Process.MainModule.ModuleName.ToLower().Split('.')[0];
@@ -89,7 +90,6 @@ public class Game1 : Game {
 			button.Window.Icon = replacementIcons[moduleName];
 		} else if (window.IsVisible) {
 			window.GetIcon();
-			// getIconQueue.Append(window);
 		}
 
 		windowButtons.Add(button);
@@ -102,7 +102,6 @@ public class Game1 : Game {
 	protected override void Initialize() {
 		base.Initialize();
 
-		Window.Position = new Point(64, 0);
 		graphics.PreferredBackBufferWidth = GraphicsDevice.DisplayMode.Width;
 		graphics.PreferredBackBufferHeight = barHeight;
 		graphics.ApplyChanges();
@@ -170,20 +169,24 @@ public class Game1 : Game {
 			System.Console.WriteLine($"Loading Replacement Icon: {name}");
 		}
 
-		// Get windows accent color
-		var uiSettings = new UISettings();
-		var ac = uiSettings.GetColorValue(UIColorType.Accent);
-		accentColor = new Color(ac.R, ac.G, ac.B, ac.A);
+		ui = new UI(spriteBatch, graphics.GraphicsDevice);
+		ui.LoadContent(Content);
 	}
 
 	protected override void Update(GameTime gameTime) {
-		if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-			Exit();
+		keyboardState = Keyboard.GetState();
+		mouseState = Mouse.GetState();
 
+		ctrlPressed = keyboardState.IsKeyDown(Keys.LeftControl) ||
+			keyboardState.IsKeyDown(Keys.RightControl);
+		altPressed = keyboardState.IsKeyDown(Keys.LeftAlt) ||
+			keyboardState.IsKeyDown(Keys.RightAlt);
+
+		// Update button widths
 		foreach (var button in windowButtons.ToArray()) {
 			button.Rectangle.Width = (int)MathHelper.Lerp(
 				button.Rectangle.Width,
-				regions.Any(r => r.LastActiveWindow == button.Window) ? 48 : 32,
+				regions.Any(r => r.LastActiveWindow == button.Window) ? buttonWidth * 1.5f : buttonWidth,
 				(float)gameTime.ElapsedGameTime.TotalSeconds * 15f
 			);
 		}
@@ -191,133 +194,91 @@ public class Game1 : Game {
 		base.Update(gameTime);
 	}
 
-	Color bgColor = new Color(0.025f, 0.025f, 0.025f);
-	Color bgColorHover = new Color(0.0f, 0.0f, 0.0f);
-	Color accentColor = new Color(0.0f, 0.6f, 0.7f);
-
-	bool Button(string text, Rectangle rect, Texture2D icon, bool hilight, bool underline) {
-		var hovered = rect.Contains(mouseState.Position);
-		// Draw background
-		spriteBatch.Draw(square, rect, (hovered && draggedButton == null) || hilight ? bgColorHover : bgColor);
-		if (underline)
-			spriteBatch.Draw(square, new Rectangle(rect.X, rect.Y + rect.Height - 3, rect.Width, 3), accentColor);
-
-		if (icon != null) {
-			spriteBatch.Draw(icon, new Rectangle(rect.Center.X - 8, rect.Y + 4, 16, 16), hilight || hovered ? Color.White : Color.Gray);
-		} else if (text.Length > 0) {
-			try {
-				Vector2 size = font.MeasureString(text);
-				if (size.X > rect.Width - 10) {
-					text = text.Substring(0, 2);
-					size.X = rect.Width / 2.0f;
-				}
-
-				var textOffset = new Vector2(rect.Center.X - size.X / 2, rect.Center.Y - size.Y / 4);
-				spriteBatch.DrawString(font, text, textOffset, Color.White, 0, Vector2.Zero, 0.5f, SpriteEffects.None, 1);
-			} catch {
-				Vector2 size = font.MeasureString("???");
-				var textOffset = new Vector2(rect.Center.X - size.X / 4, rect.Center.Y - size.Y / 4);
-				spriteBatch.DrawString(font, "???", textOffset, Color.White, 0, Vector2.Zero, 0.5f, SpriteEffects.None, 1);
-			}
-		}
-
-		return hovered && mouseState.LeftButton == ButtonState.Pressed && lastMouseState.LeftButton == ButtonState.Released;
-	}
-
-	public float Slider(float value, Rectangle rect) {
-		var hovered = rect.Contains(mouseState.Position);
-		spriteBatch.Draw(square, rect, bgColor);
-		var barRect = rect;
-		barRect.Width = (int)(rect.Width * value);
-		spriteBatch.Draw(square, barRect, hovered ? accentColor : new Color(0.1f, 0.1f, 0.1f, 1.0f));
-
-		if (hovered && mouseState.LeftButton == ButtonState.Pressed) {
-			return (float)(mouseState.Position.X - rect.Left) / rect.Width;
-		}
-
-		return value;
-	}
-
-
+	bool hasBeenSetup = false;
 	protected override void Draw(GameTime gameTime) {
+		if (!hasBeenSetup) {
+			// Setup the window style, position and make it always on top
+			var process = System.Diagnostics.Process.GetCurrentProcess();
+			var extStyle = User32.GetWindowLong(process.MainWindowHandle, User32.WindowLongFlags.GWL_EXSTYLE);
+			extStyle |= (int)User32.WindowStylesEx.WS_EX_TOPMOST;
+			User32.SetWindowLong(process.MainWindowHandle, User32.WindowLongFlags.GWL_EXSTYLE, extStyle);
+			User32.SetWindowPos(process.MainWindowHandle, HWND.HWND_TOPMOST, barOffset, -32, 0, 0, 0);
+
+			hasBeenSetup = true;
+		}
+
 		GraphicsDevice.Clear(Color.Black);
 
 		spriteBatch.Begin();
+		ui.BeginUpdate();
 
-		mouseState = Mouse.GetState();
 
 		foreach (var region in regions) {
-			var x = region.Rectangle.Left + 10 - barOffset;
+			var regionRect = new Rectangle(
+				region.Rectangle.Left - barOffset + 5,
+				0,
+				region.Rectangle.Width - 10,
+				barHeight
+			);
+
+			ui.Begin(UILayoutMode.Horizontal, regionRect);
+
 			var buttons = windowButtons.Where(wb =>
 				region.Rectangle.Contains(wb.Window.Rectangle.Center) &&
 				wb.Window.IsVisible
 			).ToArray();
 			foreach (var button in buttons) {
-				button.Rectangle.X = x;
 				var hilight = button.Window == region.LastActiveWindow;
-				var rect = button.Rectangle;
 				if (
-					Button(
-						button.Window.Title,
-						rect,
+					ui.Button(
 						button.Window.Icon,
+						new Rectangle(0, 0, button.Rectangle.Width, button.Rectangle.Height),
 						hilight,
 						hilight
 					)
 				) {
 					button.Window.SetActive();
+					if (ctrlPressed) {
+						button.Window.ToggleCompact();
+						button.Window.SetSize(region.Rectangle);
+					}
+
 					region.LastActiveWindow = button.Window;
 				}
+			}
 
-				x += rect.Width;
+			ui.Begin(UILayoutMode.HorizontalReverse, regionRect);
+
+
+			if (ui.Button("G", new Rectangle(0, 0, 48, barHeight))) {
+				foreach (var button in buttons) {
+					button.Window.SetSize(region.Rectangle);
+				}
 			}
 
 			// Draw date
 			var dateString = System.DateTime.Now.ToString("ddd - yyyy-MM-dd - HH:mm:ss").ToUpper();
 			var week = System.Globalization.CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(System.DateTime.Now, System.Globalization.CalendarWeekRule.FirstFourDayWeek, System.DayOfWeek.Monday);
 			dateString = $"W{week} " + dateString;
-
-			var dateWidth = font.MeasureString(dateString).X / 2 + 10;
-			spriteBatch.DrawString(
-				fontBold,
-				dateString,
-				new Vector2(region.Rectangle.Right - 48 - barOffset - dateWidth, 4),
-				Color.Gray,
-				0, Vector2.Zero, 0.5f, SpriteEffects.None, 1
-			);
+			ui.Label(dateString, font, new Rectangle(0, 4, 210, barHeight));
 
 			// Draw temperature
-			var tempWidth = font.MeasureString(weatherManager.CurrentTemperature).X / 2 + 10;
-			spriteBatch.DrawString(
-				fontBold,
-				weatherManager.CurrentTemperature,
-				new Vector2(region.Rectangle.Right - 48 - barOffset - dateWidth - tempWidth - 20, 4),
-				Color.Gray,
-				0, Vector2.Zero, 0.5f, SpriteEffects.None, 1
-			);
+			ui.Label(weatherManager.CurrentTemperature, font, new Rectangle(0, 4, 64, barHeight));
 
 			// Draw volume
-			audioManager.Volume = Slider(
+			ui.Label($"{System.Math.Round(audioManager.Volume)}%", font, new Rectangle(0, 4, 64, barHeight));
+			audioManager.Volume = ui.Slider(
 				(float)audioManager.Volume / 100f,
-				new Rectangle(
-					(int)(region.Rectangle.Right - 48 - barOffset - dateWidth - tempWidth - 20 - 64 - 10),
-					4,
-					64,
-					16
-				)
+				new Rectangle(0, 4, 64, 16)
 			) * 100f;
-
-			if (Button("G", new Rectangle(region.Rectangle.Right - 48 - barOffset, -2, 48, barHeight), null, false, false)) {
-				foreach (var button in buttons) {
-					button.Window.SetSize(region.Rectangle);
-				}
-			}
 		}
 
 		spriteBatch.End();
+		ui.EndUpdate();
 
 		base.Draw(gameTime);
 
 		lastMouseState = mouseState;
+		lastKeyboardState = keyboardState;
 	}
 }
