@@ -1,11 +1,17 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using Microsoft.Xna.Framework.Graphics;
 using Vanara.PInvoke;
 using Rectangle = Microsoft.Xna.Framework.Rectangle;
 
 class Window {
+	public static string[] BorderList = [
+		"chrome",
+		"fork",
+	]
+
 	public WindowManager WindowManager;
 	public HWND Hwnd;
 	public string Title = "";
@@ -32,7 +38,8 @@ class Window {
 		Hwnd = hwnd;
 		Process = process;
 		try {
-			BorderHack = Process.MainModule.FileName.ToLower().Contains("chrome");
+			var filename = Process.MainModule.FileName.ToLower();
+			BorderHack = BorderList.Any(bl => filename.Contains(bl));
 		} catch {
 
 		}
