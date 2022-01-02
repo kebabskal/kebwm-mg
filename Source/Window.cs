@@ -7,10 +7,9 @@ using Vanara.PInvoke;
 using Rectangle = Microsoft.Xna.Framework.Rectangle;
 
 class Window {
-	public static string[] BorderList = [
+	public static string[] BorderList = new String[] {
 		"chrome",
-		"fork",
-	]
+	};
 
 	public WindowManager WindowManager;
 	public HWND Hwnd;
@@ -43,7 +42,6 @@ class Window {
 		} catch {
 
 		}
-
 	}
 
 	public void GetIcon() {
