@@ -29,6 +29,7 @@ public class Game1 : Game {
 	Texture2D square;
 
 	WindowManager windowManager;
+	WeatherManager weatherManager;
 	List<WindowButton> windowButtons;
 	List<Region> regions;
 
@@ -132,6 +133,8 @@ public class Game1 : Game {
 						windowButton.Window.SetSize(region.Rectangle);
 
 		});
+
+		weatherManager = new WeatherManager();
 	}
 
 	private void OnForegroundWindowChanged(Window window) {
@@ -256,6 +259,15 @@ public class Game1 : Game {
 			);
 
 			if (Button("G", new Rectangle(region.Rectangle.Right - 48 - barOffset, -2, 48, barHeight), null, false)) {
+			// Draw temperature
+			var tempWidth = font.MeasureString(weatherManager.CurrentTemperature).X / 2 + 10;
+			spriteBatch.DrawString(
+				font,
+				weatherManager.CurrentTemperature,
+				new Vector2(region.Rectangle.Right - 48 - barOffset - dateWidth - tempWidth - 20, 4),
+				Color.Gray,
+				0, Vector2.Zero, 0.5f, SpriteEffects.None, 1
+			);
 				foreach (var button in buttons) {
 					button.Window.SetSize(region.Rectangle);
 				}

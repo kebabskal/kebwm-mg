@@ -30,5 +30,6 @@
     <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
     <PackageReference Include="Vanara.PInvoke.User32" Version="3.3.14" />
     <PackageReference Include="Vanara.PInvoke.Kernel32" Version="3.3.14" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 </Project>
