@@ -32,5 +32,7 @@
     <PackageReference Include="Vanara.PInvoke.Kernel32" Version="3.3.14" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.22000.196" />
+    <PackageReference Include="AudioSwitcher.AudioApi.CoreAudio" Version="4.0.0-alpha5" />
+    <PackageReference Include="AudioSwitcher.AudioApi" Version="4.0.0-alpha5" />
   </ItemGroup>
 </Project>

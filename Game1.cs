@@ -31,6 +31,7 @@ public class Game1 : Game {
 
 	WindowManager windowManager;
 	WeatherManager weatherManager;
+	AudioManager audioManager;
 	List<WindowButton> windowButtons;
 	List<Region> regions;
 
@@ -136,6 +137,7 @@ public class Game1 : Game {
 		});
 
 		weatherManager = new WeatherManager();
+		audioManager = new AudioManager();
 	}
 
 	private void OnForegroundWindowChanged(Window window) {
@@ -220,6 +222,20 @@ public class Game1 : Game {
 		return hovered && mouseState.LeftButton == ButtonState.Pressed && lastMouseState.LeftButton == ButtonState.Released;
 	}
 
+	public float Slider(float value, Rectangle rect) {
+		var hovered = rect.Contains(mouseState.Position);
+		spriteBatch.Draw(square, rect, bgColor);
+		var barRect = rect;
+		barRect.Width = (int)(rect.Width * value);
+		spriteBatch.Draw(square, barRect, hovered ? accentColor : new Color(0.1f, 0.1f, 0.1f, 1.0f));
+
+		if (hovered && mouseState.LeftButton == ButtonState.Pressed) {
+			return (float)(mouseState.Position.X - rect.Left) / rect.Width;
+		}
+
+		return value;
+	}
+
 
 	protected override void Draw(GameTime gameTime) {
 		GraphicsDevice.Clear(Color.Black);
@@ -277,6 +293,17 @@ public class Game1 : Game {
 				Color.Gray,
 				0, Vector2.Zero, 0.5f, SpriteEffects.None, 1
 			);
+
+			// Draw volume
+			audioManager.Volume = Slider(
+				(float)audioManager.Volume / 100f,
+				new Rectangle(
+					(int)(region.Rectangle.Right - 48 - barOffset - dateWidth - tempWidth - 20 - 64 - 10),
+					4,
+					64,
+					16
+				)
+			) * 100f;
 
 			if (Button("G", new Rectangle(region.Rectangle.Right - 48 - barOffset, -2, 48, barHeight), null, false, false)) {
 				foreach (var button in buttons) {
